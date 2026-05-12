@@ -7,6 +7,7 @@ const {
   removeProduct,
 } = require('../controllers/productController');
 const { requireAuth, requireRole } = require('../middleware/jwt');
+const { apiLimiter } = require('../middleware/rateLimit');
 const {
   productCreateValidators,
   productQueryValidators,
@@ -15,7 +16,7 @@ const {
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, apiLimiter);
 router.get('/', productQueryValidators, getProducts);
 router.get('/:id', getProduct);
 router.post('/', requireRole('admin'), productCreateValidators, postProduct);

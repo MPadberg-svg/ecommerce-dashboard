@@ -9,6 +9,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const env = require('./config/env');
+const { apiLimiter } = require('./middleware/rateLimit');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(cors({ origin: env.clientUrl }));
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
+app.use('/api', apiLimiter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

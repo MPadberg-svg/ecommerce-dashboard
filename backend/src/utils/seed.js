@@ -125,7 +125,7 @@ async function main() {
     await seedUsers();
     await seedProducts();
     await seedOrders();
-      console.log('Seed complete: 1 admin, 10 customers, 50 products, 20 orders');
+    console.log('Seed complete: 1 admin, 10 customers, 50 products, 20 orders');
   } finally {
     await pool.end();
   }
