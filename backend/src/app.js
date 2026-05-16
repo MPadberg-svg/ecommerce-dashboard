@@ -14,15 +14,29 @@ const customerRoutes = require('./routes/customerRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimit');
 
+// Config Import
+const env = require('./config/env');
+
 const app = express();
 
-// 🔥 THE FIX: Hardcoding the Codespaces frontend URL to bypass the .env file
+// CORS: dynamic origin from env, supports multiple origins for Codespaces flexibility
+const allowedOrigins = env.clientUrl
+  ? env.clientUrl.split(',').map((o) => o.trim())
+  : ['http://localhost:5173'];
+
 const corsOptions = {
-  origin: 'https://fictional-guide-q7wrg494q56xc9pjw-5173.app.github.dev', 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS blocked: origin ${origin} not in allowed list`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 };
 
 // Global Middleware
@@ -36,10 +50,11 @@ app.use('/api', apiLimiter);
 
 // Health Check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime() 
+    uptime: process.uptime(),
+    environment: env.nodeEnv,
   });
 });
 
