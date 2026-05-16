@@ -1,20 +1,16 @@
 {
-  "name": "backend",
+  "name": "ecommerce-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "E-Commerce Analytics Dashboard Backend",
   "main": "src/server.js",
+  "type": "commonjs",
   "scripts": {
-    "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
     "seed": "node src/utils/seed.js",
     "lint": "eslint .",
-    "test": "echo \"No backend tests configured\"",
-    "format": "prettier --check ."
+    "format": "prettier --write ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

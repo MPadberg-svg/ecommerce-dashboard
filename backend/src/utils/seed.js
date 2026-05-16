@@ -8,6 +8,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// --- KEEP YOUR CONSTANTS (USERS, PRODUCTS, ORDER_STATUSES) EXACTLY AS THEY WERE ---
 const USERS = [
   { fullName: 'Admin User', email: 'admin@shop.com', role: 'admin', password: 'admin123' },
   { fullName: 'Store Manager', email: 'manager@shop.com', role: 'admin', password: 'admin123' },
@@ -115,17 +116,37 @@ function randomDateWithinLast30Days() {
   return new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000 - secondsAgo * 1000);
 }
 
+// --- UPDATED SEEDING LOGIC ---
 async function seedDatabase() {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
+    // 1. Check if database is already seeded to prevent wiping data on restart
+    const tableCheck = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'users'
+      );
+    `);
+
+    if (tableCheck.rows[0].exists) {
+      const userCheck = await client.query('SELECT COUNT(*) FROM users');
+      if (parseInt(userCheck.rows[0].count) > 0) {
+        console.log('🌱 Database already seeded. Skipping initialization.');
+        await client.query('COMMIT');
+        return;
+      }
+    }
+
+    console.log('🌱 Starting database initialization...');
+
     await client.query(`
-      DROP TABLE IF EXISTS order_items;
-      DROP TABLE IF EXISTS orders;
-      DROP TABLE IF EXISTS products;
-      DROP TABLE IF EXISTS users;
+      DROP TABLE IF EXISTS order_items CASCADE;
+      DROP TABLE IF EXISTS orders CASCADE;
+      DROP TABLE IF EXISTS products CASCADE;
+      DROP TABLE IF EXISTS users CASCADE;
     `);
 
     await client.query(`
@@ -236,7 +257,7 @@ async function seedDatabase() {
     const orderCount = statuses.length;
 
     await client.query('COMMIT');
-    console.log(`Seeded ${userCount} users, ${productCount} products, ${orderCount} orders`);
+    console.log(`✅ Seeded ${userCount} users, ${productCount} products, ${orderCount} orders`);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -247,7 +268,7 @@ async function seedDatabase() {
 
 seedDatabase()
   .catch((error) => {
-    console.error('Seeding failed:', error);
+    console.error('❌ Seeding failed:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

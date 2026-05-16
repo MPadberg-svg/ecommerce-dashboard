@@ -7,16 +7,16 @@ async function waitForDb() {
   for (let i = 1; i <= retries; i += 1) {
     try {
       await pool.query('SELECT 1');
-      await pool.end();
+      // Removed pool.end() to prevent the crash
       console.log('Database is ready');
-      return;
+      process.exit(0); // Exit cleanly so Docker knows the script succeeded
     } catch {
       console.log(`Waiting for database (${i}/${retries})...`);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 
-  await pool.end();
+  // Removed pool.end() to prevent the crash
   throw new Error('Database did not become ready in time');
 }
 

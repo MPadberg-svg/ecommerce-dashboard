@@ -20,8 +20,9 @@ services:
     environment:
       NODE_ENV: development
       PORT: 5000
-      CLIENT_URL: http://localhost:${FRONTEND_PORT:-5173}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@host.docker.internal:5432/${POSTGRES_DB:-ecommerce_dashboard}
+      # 🔥 UPDATED CLIENT_URL: Bypassing localhost for GitHub Codespaces
+      CLIENT_URL: https://fictional-guide-q7wrg494q56xc9pjw-5173.app.github.dev
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ecommerce_dashboard}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
     depends_on:
@@ -30,15 +31,16 @@ services:
     command: sh -c "node src/utils/waitForDb.js && npm run seed && npm run dev"
     ports:
       - '${BACKEND_PORT:-5000}:5000'
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     volumes:
       - ./backend:/app
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://fictional-guide-q7wrg494q56xc9pjw-5000.app.github.dev/api
     environment:
-      VITE_API_URL: http://localhost:3001/api
+      VITE_API_URL: https://fictional-guide-q7wrg494q56xc9pjw-5000.app.github.dev/api
     depends_on:
       - backend
     ports:

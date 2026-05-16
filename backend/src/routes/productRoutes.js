@@ -2,11 +2,11 @@ const { Router } = require('express');
 const {
   getProducts,
   getProduct,
-  postProduct,
-  putProduct,
-  removeProduct,
+  createProduct, // Fixed name
+  updateProduct, // Fixed name
+  deleteProduct, // Fixed name
 } = require('../controllers/productController');
-const { requireAuth, requireRole } = require('../middleware/jwt');
+const { authenticate, requireRole } = require('../middleware/auth'); // Keeping the fixed path
 const { apiLimiter } = require('../middleware/rateLimit');
 const {
   productCreateValidators,
@@ -16,11 +16,12 @@ const {
 
 const router = Router();
 
-router.use(requireAuth, apiLimiter);
+router.use(authenticate, apiLimiter);
 router.get('/', productQueryValidators, getProducts);
 router.get('/:id', getProduct);
-router.post('/', requireRole('admin'), productCreateValidators, postProduct);
-router.put('/:id', requireRole('admin'), productUpdateValidators, putProduct);
-router.delete('/:id', requireRole('admin'), removeProduct);
+// Updated to use the correct function names below:
+router.post('/', requireRole('admin'), productCreateValidators, createProduct);
+router.put('/:id', requireRole('admin'), productUpdateValidators, updateProduct);
+router.delete('/:id', requireRole('admin'), deleteProduct);
 
 module.exports = router;

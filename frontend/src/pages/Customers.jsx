@@ -11,15 +11,16 @@ export default function Customers() {
 
   const { data, loading, error } = useFetch(async () => {
     const { data: payload } = await api.get('/customers');
-    return payload;
+    return payload.data; // Extract the data array from the paginated response
   }, []);
 
   const openHistory = async (customer) => {
     setSelectedCustomer(customer);
     setOrdersLoading(true);
     try {
-      const { data: payload } = await api.get('/orders', { params: { user_id: customer.id } });
-      setOrderHistory(payload);
+      // Changed user_id to userId to match backend, and extracted payload.data
+      const { data: payload } = await api.get('/orders', { params: { userId: customer.id } });
+      setOrderHistory(payload.data); 
     } catch {
       setOrderHistory([]);
     } finally {

@@ -1,41 +1,57 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
-export default function Login() {
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@dashboard.com');
-  const [password, setPassword] = useState('password123');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const onSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
     try {
       await login(email, password);
-      navigate('/');
+      navigate('/'); // Redirect to dashboard on success
     } catch (err) {
-      setError(err?.response?.data?.message || 'Login failed');
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.message || 'Failed to login. Please try again.');
     }
   };
 
   return (
-    <div className="auth-screen">
-      <form className="auth-card" onSubmit={onSubmit}>
-        <h2>Admin Login</h2>
-        <p>Use seeded credentials to sign in.</p>
-        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
+    <div className="login-container">
+      <div className="login-card">
+        <h2>Welcome Back</h2>
+        {error && <div className="error-message">{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Email</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              required 
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Password</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
+            />
+          </div>
+          
+          <button type="submit">Sign In</button>
+        </form>
+      </div>
     </div>
   );
-}
+};
+
+export default Login;

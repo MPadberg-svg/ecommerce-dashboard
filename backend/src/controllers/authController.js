@@ -9,6 +9,7 @@ async function login(req, res, next) {
     const user = await getUserByEmail(email);
 
     if (!user) {
+      // Security Tip: Keep error messages generic to prevent email harvesting
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -17,13 +18,20 @@ async function login(req, res, next) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, env.jwtSecret, {
-      expiresIn: env.jwtExpiresIn,
-    });
+    const token = jwt.sign(
+      { id: user.id, role: user.role, email: user.email }, 
+      env.jwtSecret, 
+      { expiresIn: env.jwtExpiresIn }
+    );
 
     return res.json({
       token,
-      user: { id: user.id, email: user.email, role: user.role, created_at: user.created_at },
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        role: user.role, 
+        created_at: user.created_at 
+      },
     });
   } catch (error) {
     return next(error);
@@ -32,11 +40,15 @@ async function login(req, res, next) {
 
 async function me(req, res, next) {
   try {
+    // req.user.id comes from the jwt middleware we just created
     const user = await getUserById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    return res.json(user);
+    
+    // Safety: ensure password_hash is never sent to the client
+    const { password_hash, ...userWithoutPassword } = user;
+    return res.json(userWithoutPassword);
   } catch (error) {
     return next(error);
   }
