@@ -42,22 +42,28 @@ async function listOrders({ page = 1, limit = 10, status, userId }) {
 }
 
 async function getOrderById(id) {
-  const orderResult = await pool.query(`
+  const orderResult = await pool.query(
+    `
     SELECT o.id, o.total, o.status, o.created_at, u.full_name as customer_name, u.email as customer_email
     FROM orders o
     JOIN users u ON o.user_id = u.id
     WHERE o.id = $1
-  `, [id]);
+  `,
+    [id],
+  );
 
   if (!orderResult.rows.length) return null;
   const order = orderResult.rows[0];
 
-  const itemsResult = await pool.query(`
+  const itemsResult = await pool.query(
+    `
     SELECT oi.quantity, oi.price_at_time, p.name as product_name, p.image_url
     FROM order_items oi
     JOIN products p ON oi.product_id = p.id
     WHERE oi.order_id = $1
-  `, [id]);
+  `,
+    [id],
+  );
 
   order.items = itemsResult.rows;
   return order;

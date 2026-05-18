@@ -13,13 +13,48 @@ const USERS = [
   { fullName: 'Admin User', email: 'admin@shop.com', role: 'admin', password: 'admin123' },
   { fullName: 'Store Manager', email: 'manager@shop.com', role: 'admin', password: 'admin123' },
   { fullName: 'John Doe', email: 'customer1@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'Jane Smith', email: 'customer2@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'Michael Brown', email: 'customer3@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'Emily Davis', email: 'customer4@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'David Wilson', email: 'customer5@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'Sarah Johnson', email: 'customer6@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'Daniel Lee', email: 'customer7@shop.com', role: 'customer', password: 'password123' },
-  { fullName: 'Olivia Taylor', email: 'customer8@shop.com', role: 'customer', password: 'password123' },
+  {
+    fullName: 'Jane Smith',
+    email: 'customer2@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
+  {
+    fullName: 'Michael Brown',
+    email: 'customer3@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
+  {
+    fullName: 'Emily Davis',
+    email: 'customer4@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
+  {
+    fullName: 'David Wilson',
+    email: 'customer5@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
+  {
+    fullName: 'Sarah Johnson',
+    email: 'customer6@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
+  {
+    fullName: 'Daniel Lee',
+    email: 'customer7@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
+  {
+    fullName: 'Olivia Taylor',
+    email: 'customer8@shop.com',
+    role: 'customer',
+    password: 'password123',
+  },
 ];
 
 const PRODUCTS = [
@@ -216,7 +251,13 @@ async function seedDatabase() {
     for (const product of PRODUCTS) {
       const result = await client.query(
         'INSERT INTO products(name, category, price, stock, image_url) VALUES ($1, $2, $3, $4, $5) RETURNING id, price',
-        [product.name, product.category, product.price.toFixed(2), product.stock, productImageUrl(product.name)],
+        [
+          product.name,
+          product.category,
+          product.price.toFixed(2),
+          product.stock,
+          productImageUrl(product.name),
+        ],
       );
       insertedProducts.push(result.rows[0]);
     }
@@ -246,12 +287,10 @@ async function seedDatabase() {
       );
 
       for (const item of items) {
-        await client.query('INSERT INTO order_items(order_id, product_id, quantity, price_at_time) VALUES ($1, $2, $3, $4)', [
-          orderResult.rows[0].id,
-          item.productId,
-          item.quantity,
-          item.priceAtTime.toFixed(2),
-        ]);
+        await client.query(
+          'INSERT INTO order_items(order_id, product_id, quantity, price_at_time) VALUES ($1, $2, $3, $4)',
+          [orderResult.rows[0].id, item.productId, item.quantity, item.priceAtTime.toFixed(2)],
+        );
       }
     }
     const orderCount = statuses.length;

@@ -63,5 +63,5 @@ module.exports = {
   getRevenueByCategory,
   getTopProducts,
   getOrderStatusDistribution,
-  getSummaryStats
+  getSummaryStats,
 };

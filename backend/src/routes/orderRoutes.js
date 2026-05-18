@@ -1,7 +1,12 @@
 const { Router } = require('express');
-const { getOrders, getOrder, createOrder, updateStatus } = require('../controllers/orderController');
+const {
+  getOrders,
+  getOrder,
+  createOrder,
+  updateStatus,
+} = require('../controllers/orderController');
 // 1. Changed requireAdmin to requireRole
-const { authenticate, requireRole } = require('../middleware/auth'); 
+const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = Router();
 

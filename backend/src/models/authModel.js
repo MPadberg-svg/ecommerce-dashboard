@@ -3,7 +3,7 @@ const db = require('../config/database');
 async function getUserByEmail(email) {
   const result = await db.query(
     'SELECT id, full_name, email, password_hash, role, created_at FROM users WHERE email = $1',
-    [email]
+    [email],
   );
   return result.rows[0] || null;
 }
@@ -11,7 +11,7 @@ async function getUserByEmail(email) {
 async function getUserById(id) {
   const result = await db.query(
     'SELECT id, full_name, email, role, created_at FROM users WHERE id = $1',
-    [id]
+    [id],
   );
   return result.rows[0] || null;
 }

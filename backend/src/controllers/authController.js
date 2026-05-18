@@ -18,19 +18,17 @@ async function login(req, res, next) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { id: user.id, role: user.role, email: user.email }, 
-      env.jwtSecret, 
-      { expiresIn: env.jwtExpiresIn }
-    );
+    const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, env.jwtSecret, {
+      expiresIn: env.jwtExpiresIn,
+    });
 
     return res.json({
       token,
-      user: { 
-        id: user.id, 
-        email: user.email, 
-        role: user.role, 
-        created_at: user.created_at 
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at,
       },
     });
   } catch (error) {
@@ -45,8 +43,9 @@ async function me(req, res, next) {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     // Safety: ensure password_hash is never sent to the client
+    // eslint-disable-next-line no-unused-vars
     const { password_hash, ...userWithoutPassword } = user;
     return res.json(userWithoutPassword);
   } catch (error) {

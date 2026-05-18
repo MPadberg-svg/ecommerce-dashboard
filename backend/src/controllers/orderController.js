@@ -3,11 +3,11 @@ const orderModel = require('../models/orderModel');
 async function getOrders(req, res, next) {
   try {
     const { page = 1, limit = 10, status, userId } = req.query;
-    const result = await orderModel.listOrders({ 
-      page: Number(page), 
-      limit: Number(limit), 
+    const result = await orderModel.listOrders({
+      page: Number(page),
+      limit: Number(limit),
       status,
-      userId 
+      userId,
     });
     return res.json(result);
   } catch (error) {

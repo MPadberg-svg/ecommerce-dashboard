@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const { login, me } = require('../controllers/authController');
 // 1. Changed requireAuth to authenticate
-const { authenticate } = require('../middleware/auth'); 
+const { authenticate } = require('../middleware/auth');
 const { authValidators } = require('../utils/validators');
 const { authLimiter } = require('../middleware/rateLimit');
 

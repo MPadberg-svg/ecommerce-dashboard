@@ -20,3 +20,4 @@ The API gateway implements an asynchronous decoupled architecture built on Node.
                                                    [ Relational Data Model ]
                                                             │
 [ Client UI Client View ] <──( Aggregated JSON )─── [ PostgreSQL Database ]
+```

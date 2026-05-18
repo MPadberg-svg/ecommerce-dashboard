@@ -16,7 +16,7 @@ const requireAuth = (req, res, next) => {
     req.user = {
       id: decoded.id,
       role: decoded.role,
-      email: decoded.email
+      email: decoded.email,
     };
     next();
   } catch (error) {
