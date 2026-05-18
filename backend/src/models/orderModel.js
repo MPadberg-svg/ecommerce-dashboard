@@ -48,7 +48,7 @@ async function getOrderById(id) {
     FROM orders o
     JOIN users u ON o.user_id = u.id
     WHERE o.id = $1
-  `,
+    `,
     [id],
   );
 
@@ -61,7 +61,7 @@ async function getOrderById(id) {
     FROM order_items oi
     JOIN products p ON oi.product_id = p.id
     WHERE oi.order_id = $1
-  `,
+    `,
     [id],
   );
 
@@ -69,21 +69,24 @@ async function getOrderById(id) {
   return order;
 }
 
-// YOUR AWESOME TRANSACTIONAL CREATE FUNCTION (updated with price_at_time column)
+// PRODUCTION-READY: Full ACID transaction with row-level locking
 async function createOrder({ userId, items }) {
   const client = await pool.connect();
+  
   try {
     await client.query('BEGIN');
 
+    // Fetch products with row-level locking to prevent race conditions
     const productIds = items.map((item) => item.product_id);
     const productsResult = await client.query(
-      'SELECT id, name, price, stock FROM products WHERE id = ANY($1::int[])',
+      'SELECT id, name, price, stock FROM products WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
       [productIds],
     );
 
     const productsMap = new Map(productsResult.rows.map((item) => [item.id, item]));
     let total = 0;
 
+    // Validate all items before any writes (fail-fast pattern)
     for (const item of items) {
       const product = productsMap.get(item.product_id);
       if (!product) {
@@ -99,6 +102,7 @@ async function createOrder({ userId, items }) {
       total += Number(product.price) * Number(item.quantity);
     }
 
+    // Create order
     const orderResult = await client.query(
       'INSERT INTO orders(user_id, total, status) VALUES ($1, $2, $3) RETURNING id, user_id, total, status, created_at',
       [userId, total, 'Pending'],
@@ -106,16 +110,17 @@ async function createOrder({ userId, items }) {
 
     const order = orderResult.rows[0];
 
+    // Create order items and decrement stock
     for (const item of items) {
       const product = productsMap.get(item.product_id);
       await client.query(
         'INSERT INTO order_items(order_id, product_id, quantity, price_at_time) VALUES ($1, $2, $3, $4)',
         [order.id, item.product_id, item.quantity, product.price],
       );
-      await client.query('UPDATE products SET stock = stock - $1 WHERE id = $2', [
-        item.quantity,
-        item.product_id,
-      ]);
+      await client.query(
+        'UPDATE products SET stock = stock - $1 WHERE id = $2',
+        [item.quantity, item.product_id],
+      );
     }
 
     await client.query('COMMIT');

@@ -1,19 +1,39 @@
-.PHONY: help start start-codespaces stop logs lint format test clean install
+.PHONY: help start start-local start-codespaces start-detached stop restart logs logs-backend logs-frontend logs-db install install-backend install-frontend dev-backend dev-frontend seed lint lint-backend lint-frontend format format-backend format-frontend health test-api clean prune shell-backend shell-db
 
 # ═══════════════════════════════════════════════════════════════
-# E-Commerce Analytics Dashboard — Development Commands
+# E-Commerce Analytics Dashboard — Universal Development Commands
+# Auto-detects GitHub Codespaces vs Local environment
 # ═══════════════════════════════════════════════════════════════
 
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-.env: .env.example ## Generate .env from template (local dev)
+# ═══════════════════════════════════════════════════════════════
+# UNIVERSAL START — Auto-detects environment
+# ═══════════════════════════════════════════════════════════════
+
+start: ## Start full stack (auto-detects Local vs Codespaces)
+	@if [ -n "$(CODESPACE_NAME)" ]; then \
+		$(MAKE) start-codespaces; \
+	else \
+		$(MAKE) start-local; \
+	fi
+
+# ─── Local Development ─────────────────────────────────────────
+
+.env: .env.example ## Generate .env from template
 	@if [ ! -f .env ]; then \
 		echo "📝 Creating .env from .env.example..."; \
 		cp .env.example .env; \
-	else \
-		echo "✅ .env already exists"; \
 	fi
+
+start-local: .env ## Start locally (Docker Compose + localhost)
+	@echo "🚀 Starting E-Commerce Dashboard (Local)..."
+	@echo "   Frontend → http://localhost:5173"
+	@echo "   Backend  → http://localhost:5000/api"
+	@docker compose up --build
+
+# ─── GitHub Codespaces ───────────────────────────────────────
 
 .env.codespaces: ## Generate .env.codespaces from CODESPACE_NAME
 	@if [ -z "$(CODESPACE_NAME)" ]; then \
@@ -24,23 +44,23 @@ help: ## Display this help message
 	@echo "CLIENT_URL=https://$(CODESPACE_NAME)-5173.app.github.dev" > .env.codespaces
 	@echo "VITE_API_URL=https://$(CODESPACE_NAME)-5000.app.github.dev/api" >> .env.codespaces
 
-start: .env ## Start full stack locally (Docker Compose)
-	@echo "🚀 Starting E-Commerce Dashboard (Local)..."
-	@echo "   Frontend → http://localhost:5173"
-	@echo "   Backend  → http://localhost:5000/api"
-	@docker compose up --build
-
-start-codespaces: .env.codespaces ## Start full stack in GitHub Codespaces
+start-codespaces: .env.codespaces ## Start in GitHub Codespaces
 	@echo "🚀 Starting E-Commerce Dashboard (Codespaces)..."
 	@echo "   Codespace: $(CODESPACE_NAME)"
+	@echo "   Frontend  → https://$(CODESPACE_NAME)-5173.app.github.dev"
+	@echo "   Backend   → https://$(CODESPACE_NAME)-5000.app.github.dev/api"
 	@docker compose --env-file .env.codespaces up --build
 
-start-detached: .env ## Start in background (daemon mode)
-	@echo "🚀 Starting in detached mode..."
-	@docker compose up --build -d
-	@echo "✅ Containers running in background"
-	@echo "   Frontend → http://localhost:5173"
-	@echo "   Backend  → http://localhost:5000/api"
+# ═══════════════════════════════════════════════════════════════
+# SHARED COMMANDS (work in both environments)
+# ═══════════════════════════════════════════════════════════════
+
+start-detached: ## Start in background (daemon mode)
+	@if [ -n "$(CODESPACE_NAME)" ]; then \
+		docker compose --env-file .env.codespaces up --build -d; \
+	else \
+		docker compose up --build -d; \
+	fi
 
 stop: ## Stop all containers
 	@echo "🛑 Stopping containers..."

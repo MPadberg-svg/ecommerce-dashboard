@@ -92,6 +92,17 @@ Security was not an afterthought — it was architected into every layer:
 | **Database** | Parameterized queries via `pg` pool (SQL injection prevention); SSL enabled in production |
 | **Container Security** | Non-root `node` user; minimal Alpine base; no secrets baked into images |
 
+### Post-Audit Security Fixes
+
+After a comprehensive security audit, the following critical improvements were implemented:
+
+| Issue | Fix | File |
+|-------|-----|------|
+| **JWT_WEAK_DEFAULT** | Production now crashes on startup if `JWT_SECRET` is missing; dev uses a clearly labeled placeholder | `backend/src/config/env.js` |
+| **CORS_ORIGIN_ERROR** | CORS middleware returns `403` instead of throwing `500` on blocked origins | `backend/src/app.js` |
+| **NO_TRANSACTION_SUPPORT** | Order creation uses `FOR UPDATE` row locking to prevent race conditions on stock deduction | `backend/src/models/orderModel.js` |
+| **RATE_LIMIT_PROXY** | Express trusts `X-Forwarded-For` from nginx proxy for accurate client IP detection | `backend/src/app.js` |
+
 ---
 
 ## Features
@@ -115,6 +126,7 @@ Security was not an afterthought — it was architected into every layer:
 - Status-driven workflow: **Pending → Shipped → Delivered**
 - Customer-scoped views (customers only see their own orders)
 - Admin override capabilities for full order pipeline
+- **ACID transactions** with row-level locking prevent concurrent stock corruption
 
 ### Customer Insights
 - Paginated customer directory with embedded order history modal
@@ -164,7 +176,7 @@ ecommerce-dashboard/
 │   ├── package.json
 │   └── .env.example
 ├── docker-compose.yml           # Orchestrated stack: Postgres + Backend + Frontend
-├── Makefile                     # Unified build automation (local + Codespaces)
+├── Makefile                     # Universal build automation (auto-detects environment)
 ├── .env.example                 # Root-level Docker Compose environment template
 └── README.md
 ```
@@ -188,15 +200,16 @@ cd ecommerce-dashboard
 # See all available commands
 make help
 
-# Start the full stack locally
+# Start the full stack (auto-detects Local vs Codespaces)
 make start
 ```
 
 | Command | Environment | Description |
 |---------|-------------|-------------|
-| `make start` | Local | Start with `.env` (localhost URLs) |
-| `make start-codespaces` | GitHub Codespaces | Auto-detects `CODESPACE_NAME` and configures URLs |
-| `make start-detached` | Any | Background mode (daemon) |
+| `make start` | **Auto-detect** | Uses `.env` locally, `.env.codespaces` in GitHub Codespaces |
+| `make start-local` | Local | Force localhost mode |
+| `make start-codespaces` | Codespaces | Force Codespaces mode |
+| `make start-detached` | Any | Background daemon mode |
 | `make stop` | Any | Stop all containers |
 | `make restart` | Any | Full restart |
 | `make logs` | Any | Tail all logs |
@@ -212,12 +225,12 @@ make start
 
 ### GitHub Codespaces
 
-In GitHub Codespaces, `make start-codespaces` automatically:
+In GitHub Codespaces, `make start` automatically:
 1. Detects your `CODESPACE_NAME`
 2. Generates `.env.codespaces` with the correct URLs
 3. Starts the stack with those overrides
 
-> No manual URL editing required.
+> No manual URL editing required. No long commands.
 
 ### Manual Docker Setup (Alternative)
 
@@ -337,7 +350,7 @@ VITE_API_URL=http://localhost:5000/api
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/orders` | Bearer | List orders (customer-scoped unless admin) |
-| POST | `/api/orders` | Bearer | Create new order |
+| POST | `/api/orders` | Bearer | Create new order (ACID transaction with stock locking) |
 | PUT | `/api/orders/:id` | Bearer + Admin | Update order status (`Pending` → `Shipped` → `Delivered`) |
 
 ### Customers
