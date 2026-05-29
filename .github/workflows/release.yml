@@ -1,0 +1,83 @@
+name: Release & Changelog
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/codeql.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get current version from package.json
+        id: pkg_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          LATEST=$(git tag --sort=-version:refname | head -n1)
+          echo "tag=${LATEST:-none}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          if [ "${{ steps.latest_tag.outputs.tag }}" = "none" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%an)" | head -20)
+          else
+            COMMITS=$(git log ${{ steps.latest_tag.outputs.tag }}..HEAD --pretty=format:"- %s (%an)")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            COMMITS="- Minor improvements and bug fixes"
+          fi
+
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$COMMITS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Bump patch version
+        id: new_version
+        run: |
+          CURRENT="${{ steps.pkg_version.outputs.version }}"
+          IFS='.' read -ra PARTS <<< "$CURRENT"
+          PATCH=$((${PARTS[2]:-0} + 1))
+          NEW="${PARTS[0]}.${PARTS[1]}.${PATCH}"
+          echo "version=$NEW" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.new_version.outputs.version }}" \
+            -m "Release v${{ steps.new_version.outputs.version }}"
+          git push origin "v${{ steps.new_version.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.new_version.outputs.version }}
+          name: Release v${{ steps.new_version.outputs.version }}
+          body: |
+            ## 🚀 What's Changed
+
+            ${{ env.CHANGELOG }}
+
+            ---
+            **Full Changelog**: https://github.com/${{ github.repository }}/commits/main
+          draft: false
+          prerelease: false
