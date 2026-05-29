@@ -1,53 +1,221 @@
-name: Enterprise CI Pipeline
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  backend-checks:
-    name: Backend Lint & Test
+  # ─────────────────────────────────────────
+  # 1. LINT & FORMAT
+  # ─────────────────────────────────────────
+  lint:
+    name: Lint & Format Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Install Dependencies
-        run: npm install
-        
-      - name: Run Strict Linter
-        run: npm run lint
-        
-      - name: Execute Integration Tests
-        run: npm run test
 
-  frontend-checks:
-    name: Frontend Lint
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
-      - name: Checkout Repository
+      - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          
-      - name: Install Dependencies
-        run: npm install
-        
-      - name: Run Strict Linter
-        run: npm run lint
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint --if-present
+
+      - name: Lint backend
+        working-directory: backend
+        run: npm run lint --if-present
+
+      - name: Check Prettier formatting
+        run: npx prettier --check "**/*.{js,jsx,json,css,md}" --ignore-path .gitignore
+
+  # ─────────────────────────────────────────
+  # 2. BACKEND TESTS
+  # ─────────────────────────────────────────
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ecommerce_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecommerce_test
+      JWT_SECRET: test-secret-key-for-ci-only
+      JWT_EXPIRES_IN: 1h
+      PORT: 5000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
+      - name: Run database seed
+        working-directory: backend
+        run: npm run seed --if-present
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test --if-present
+
+  # ─────────────────────────────────────────
+  # 3. FRONTEND BUILD
+  # ─────────────────────────────────────────
+  frontend-build:
+    name: Frontend Build Check
+    runs-on: ubuntu-latest
+    needs: lint
+
+    env:
+      VITE_API_URL: http://localhost:5000/api
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  # ─────────────────────────────────────────
+  # 4. DOCKER COMPOSE INTEGRATION TEST
+  # ─────────────────────────────────────────
+  docker-integration:
+    name: Docker Compose Integration
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env from example
+        run: cp .env.example .env
+
+      - name: Build and start stack
+        run: docker compose up --build -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for backend health check..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Backend is healthy"
+              break
+            fi
+            echo "Attempt $i/30 — status: $STATUS. Retrying in 5s..."
+            sleep 5
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Backend failed to become healthy"
+            docker compose logs backend
+            exit 1
+          fi
+
+      - name: Smoke test API endpoints
+        run: |
+          echo "Testing /api/health..."
+          curl -sf http://localhost:5000/api/health | jq .
+
+          echo "Testing /api/auth/login..."
+          RESPONSE=$(curl -sf -X POST http://localhost:5000/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@shop.com","password":"admin123"}')
+          echo "$RESPONSE" | jq .
+          TOKEN=$(echo "$RESPONSE" | jq -r '.token')
+
+          echo "Testing /api/dashboard/stats (authenticated)..."
+          curl -sf http://localhost:5000/api/dashboard/stats \
+            -H "Authorization: Bearer $TOKEN" | jq .
+
+      - name: Print logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
+
+  # ─────────────────────────────────────────
+  # 5. CI STATUS BADGE (summary)
+  # ─────────────────────────────────────────
+  ci-success:
+    name: CI Passed ✅
+    runs-on: ubuntu-latest
+    needs: [lint, backend-test, frontend-build, docker-integration]
+    if: success()
+
+    steps:
+      - name: All checks passed
+        run: echo "All CI jobs passed successfully 🎉"
